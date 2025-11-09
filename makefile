@@ -1,8 +1,7 @@
 CC = gcc
 NA = nasm
 CFLAGS = -Wall -g
-NFLAGS = -f elf64
-
+NFLAGS = -f elf64 -g -F dwarf
 all: heap
 
 heap: heap.o main.o

@@ -74,6 +74,7 @@ memory_alloc:
             mov rdx, [rsi+1]                ; rdx = register[i]->size_block
             add rsi, 9                  
             add rsi, rdx                    ; i++
+            add rsi, 8
             jmp _loop   
     _end_loop:  
         ; Case: there's a free block    
