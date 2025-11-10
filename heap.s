@@ -6,6 +6,7 @@ heap_start: resq 1                          ; the beginning of the heap
 section .text
 global setup_brk
 global dismiss_brk
+global get_brk
 global memory_alloc
 global memory_free
 
@@ -29,6 +30,17 @@ dismiss_brk:
 
     mov rax, 12
     mov rdi, [heap_start]
+    syscall
+
+    pop rbp
+    ret
+
+get_brk:
+    push rbp
+    mov rbp, rsp
+
+    mov rax, 12
+    xor rdi, rdi
     syscall
 
     pop rbp
@@ -135,26 +147,25 @@ memory_free:
     mov rbp, rsp
 
     cmp rdi, 0                              ; if ptr != 0(NULL) then jump
-    jne _set_free
-    mov rax, -1                             ; return -1
-    jmp _exit_free
+    je _exit_error
+    cmp BYTE [rdi-9], 0                     ; if ptr was free then jump
+    je _exit_error
 
-    _set_free:
-        sub rdi, 9                          ; get the beginning of the register
-        mov BYTE [rdi], 0                   ; register->valid = 0 (free)
+    sub rdi, 9                              ; get the beginning of the register
+    mov BYTE [rdi], 0                       ; register->valid = 0 (free)
     ; Starting of the merge registers
     ; Check behind
-        sub rsp, 32
-        mov [rbp - 8], rdi                  ; ponteiro base 
-        mov rax, [rdi + 1]
-        mov [rbp - 16], rax                 ; tamanho do bloco inicial
-        mov rax, [heap_start]
-        mov [rbp - 24], rax                 ; inicio da heap
-        mov rax, 12
-        xor rdi, rdi
-        syscall
-        mov [rbp - 32], rax                 ; topo da heap
-        xor rax, rax
+    sub rsp, 32
+    mov [rbp - 8], rdi                      ; ponteiro base 
+    mov rax, [rdi + 1]
+    mov [rbp - 16], rax                     ; tamanho do bloco inicial
+    mov rax, [heap_start]
+    mov [rbp - 24], rax                     ; inicio da heap
+    mov rax, 12
+    xor rdi, rdi
+    syscall
+    mov [rbp - 32], rax                     ; topo da heap
+    xor rax, rax
 
     _loop_merge_behind:
         mov rdi, [rbp - 8]                  ; ponteiro do bloco atual
@@ -171,7 +182,7 @@ memory_free:
         je _loop_merge_ahead
 
         add rdi, [rbp - 16]                 ; rdi = size bloco anterior + size bloco atual
-        add rdi, 17                         ; rdi = size bloco dados + metadados
+        add rdi, 17                         ; rdi = novo tamanho + metadados engolidos
         mov [rdx + 1], rdi                  ; tamanho novo = rdi
         mov [rdx + 9 + rdi], rdi            ; footer
         mov [rbp - 8], rdx                  ; novo ponteiro atual
@@ -190,7 +201,7 @@ memory_free:
 
         mov rdx, [rdx + 1]                  ; tamanho do proximo bloco
         add rdx, [rbp - 16]                 ; rdx = tamanho atual + tamanho proximo
-        add rdx, 17                         ; rdx = tamanho dados + tamanho metadados
+        add rdx, 17                         ; rdx = novo tamanho + metadados engolidos
         mov [rdi + 1], rdx                  ; tamanho novo = rdx
         mov [rdi + 9 + rdx], rdx            ; footer
         mov [rbp - 16], rdx                 ; novo tamanho atual
@@ -213,6 +224,14 @@ memory_free:
         _end_merge:
             add rsp, 32
             mov rax, 0
+            jmp _exit_sucess
+
+    _exit_error:
+        mov rax, 1
+        jmp _exit_free
+
+    _exit_sucess:
+        mov rax, 0
 
     _exit_free:
         pop rbp
