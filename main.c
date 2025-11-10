@@ -13,39 +13,41 @@ int main(){
 
     // Valores descritos nos comentarios devem ser consultados pelo gdb
     
+    /* EXECUTED WITHOUT ERRORS USING GDB */
     /* Test 1: frist allocation
-     * p1 = 0x40509
-     * [[O 50]]
+     * p1 = 0x405009
     */
     void *p1 = memory_alloc(100);
 
+    /* EXECUTED WITHOUT ERRORS USING GDB */
     /*  Test 2: next allocation after first allocation
-     * p2 = 0x4057E 
-     * [[O 50][O 20]]
+     * p2 = 0x40507E
     */
     void *p2 = memory_alloc(20);
 
+    /* EXECUTED WITHOUT ERRORS USING GDB */
     /* Test 3: allocation with worst fit and split
-     * s = 0x40587 && return 0
-     * t1 = 0x405D0
-     * m = 0x405E2 && return 0
-     * t2 = 0x406ED
-     * l = 0x406FF && return 0
-     * p3 = 0x405E2
-     * [[O 50][O 20][O 50][O 1][O 250][O 1][O 150]]
+     * s = 0x4050A3 && return 0
+     * t1 = 0x4050E6
+     * m = 0x4050F8 && return 0
+     * t2 = 0x405203
+     * l = 0x405215 && return 0
+     * t3 = 0x4052BC
+     * p3 = 0x405215
     */
-    void *s = memory_alloc(50);
-    void *t1 = memory_alloc(1);
-    void *l = memory_alloc(250);
-    void *t2 = memory_alloc(1);
-    void *m = memory_alloc(150);
+    void *s = memory_alloc(50); /* RIGHT */
+    void *t1 = memory_alloc(1); /* RIGHT */
+    void *l = memory_alloc(250);/* RIGHT */
+    void *t2 = memory_alloc(1); /* RIGHT */
+    void *m = memory_alloc(150);/* RIGHT */
+    void *t3 = memory_alloc(1); /* RIGHT */
     if ((memory_free(s) != 0) || (memory_free(l) != 0) || (memory_free(m) != 0))
         return -1;
-    void *p3 = memory_alloc(50);
+    void *p3 = memory_alloc(50);/* RIGHT */
 
+    /* RESOLVER OS VALORES DOS PONTEIROS A PARTIR DAQUI */
     /* Test 4: checking new record after split 
-     * p4 = 0x4061C 
-     * [[O 50][O 20][L 50][O 1][O 50][L 183][O 1][O 150]]
+     * p4 = 0x4061C
     */
     void *p4 = memory_alloc(150);
 
