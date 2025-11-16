@@ -1,3 +1,5 @@
 *.pdf
 *.o
 heap
+heap_en.s
+*.tex

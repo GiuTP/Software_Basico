@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
 
+// Função auxiliar
+void *get_brk();
+
+// API de funções de alocação dinâmica de memória
 void setup_brk();
 void dismiss_brk();
-void *get_brk();
 void *memory_alloc(unsigned long int);
 int memory_free(void *pointer);
 

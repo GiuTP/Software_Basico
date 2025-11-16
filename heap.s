@@ -1,7 +1,7 @@
 section .note.GNU-stack progbits noalloc noexec nowrite
 
 section .bss
-heap_start: resq 1                          ; the beginning of the heap
+heap_start: resq 1                          ; endereço do começo da heap
 
 section .text
 global setup_brk
@@ -10,7 +10,7 @@ global get_brk
 global memory_alloc
 global memory_free
 
-; gets the current heap address
+; pega o endereço inicial da heap
 setup_brk:
     push rbp
     mov rbp, rsp
@@ -23,7 +23,7 @@ setup_brk:
     pop rbp
     ret
 
-; resets the heap address to the beginning
+; reseta o endereço da heap para o inicial
 dismiss_brk:
     push rbp
     mov rbp, rsp
@@ -46,12 +46,13 @@ get_brk:
     pop rbp
     ret
 
+; aloca blocos na heap
+; retorna o endereço da area de dados do bloco alocado
 memory_alloc:
     push rbp
     mov rbp, rsp
-
-    ; check if there's a free block 
-    ; local variables: size_block, size_worst_block, ptr_worst_block and top_heap
+ 
+    ; variaveis locais: size_block, size_worst_block, ptr_worst_block e top_heap
     sub rsp, 32
     mov [rbp-8], rdi                        ; size_block
     mov QWORD [rbp-16], 0                   ; size_worst_block
@@ -60,179 +61,199 @@ memory_alloc:
     mov rax, 12
     xor rdi, rdi    
     syscall 
-    mov [rbp-32], rax                       ; top_heap (loop's ceil)
+    mov [rbp-32], rax                       ; top_heap (limite do loop)
 
-    mov rsi, [heap_start]                   ; i = beginning of heap
+    mov rsi, [heap_start]                   ; i = começo da heap
 
+    ; Verifica se há algum bloco livre e se ele tem o tamanho suficiente (worst fit)
     _loop:  
         cmp rsi, [rbp-32]                   ; while i < top_heap
         jge _end_loop       
 
-        cmp BYTE [rsi], 1                   ; if register[i]->valid == 1 then jump
+        cmp BYTE [rsi], 1                   ; Se register[i]->free == 1 então pula (bloco ocupado)
         je _next_block  
 
         mov rdx, [rsi+1]                    ; rdx = register[i]->size_block
-        cmp rdx, [rbp-8]                    ; if register[i]->size_block < size_block then jump
+        cmp rdx, [rbp-8]                    ; Se register[i]->size_block < size_block então pula (bloco não cabe)
         jl _next_block  
 
         mov rdx, [rbp-16]                   ; rdx = size_worst_block
-        cmp rdx, [rsi+1]                    ; if size_worst_block > register[i]->size_block then jump
+        cmp rdx, [rsi+1]                    ; Se size_worst_block > register[i]->size_block então pula (tamanho do bloco não é maior que o maior bloco até agora)
         jg _next_block  
 
+        ; Atualização das variáveis locais
         mov rdx, [rsi+1]                    ; rdx = register[i]->size_block
         mov [rbp-16], rdx                   ; size_worst_block = register[i]->size_block
         mov [rbp-24], rsi                   ; ptr_worst_block = i
+
+        ; Contiuação do loop (próximo bloco)
         _next_block:    
             mov rdx, [rsi+1]                ; rdx = register[i]->size_block
             add rsi, 9                  
-            add rsi, rdx                    ; i++
-            add rsi, 8
+            add rsi, rdx                    
+            add rsi, 8                      ; i++
             jmp _loop   
+            
     _end_loop:  
-        ; Case: there's a free block    
-        mov rsi, [rbp-24]   
-        cmp QWORD rsi, 0                    ; if ptr_worst_block == 0 then jump
-        je _alloc_new_block 
 
-        mov rdx, [rbp-16]   
+        mov rsi, [rbp-24]                   ; rsi = ptr_worst_block
+        cmp QWORD rsi, 0                    ; Se ptr_worst_block == 0 então pula (não existe bloco livre ou com tamanho suficiente)
+        je _alloc_new_block                 
+
+        mov rdx, [rbp-16]                   ; rdx = size_worst_block
         sub rdx, [rbp-8]                    ; extra_bytes = size_block - size_worst_block
 
-        ; Case: there's enough and a extra space then split
-        cmp rdx, 18                         ; if extra_bytes < 18 then jump
-        jl _set_block   
+        cmp rdx, 18                         ; Se extra_bytes < 18 então pula (não tem espaço suficiente para um novo bloco)
+        jl _set_block       
+
+        ; Case 1.a: tamanho suficiente e com bytes extras suficientes para novo bloco
         mov rbx, [rbp-8]                    ; rbx = size_block
         mov QWORD [rsi+1], rbx              ; register[ptr_worst_block]->size_block = size_block (header)
         mov QWORD [rsi+9+rbx], rbx          ; register[ptr_worst_block]->size_block = size_block (footer)
 
-        ; Create a new register 
+        ; Cria um novo bloco 
         lea rbx, [rsi+9+rbx+8]              ; new_register
         mov BYTE [rbx], 0                   ; new_register->valid = 0
-        sub rdx, 17                          
-        mov QWORD [rbx+1], rdx              ; new_register->size_block = extra_bytes (header)
-        mov QWORD [rbx+9+rdx], rdx          ; new_register->size_block = extra_bytes (footer)
+        sub rdx, 17                         ; size_block = extra_bytes - 17 (metadados)
+        mov QWORD [rbx+1], rdx              ; new_register->size_block = size_block (header)
+        mov QWORD [rbx+9+rdx], rdx          ; new_register->size_block = size_block (footer)
     
-        ; Case: there's enough and no extra space then return the block
+        ; Case 1.b: tamanho suficiente e bytes extras insuficientes para novo bloco
+        ; E continuação do caso 1.a
         _set_block:
             mov BYTE [rsi], 1               ; register[ptr_worst_block]->valid = 1
-            lea rax, [rsi+9]                ; return the address of the data's block
+            lea rax, [rsi+9]                ; retorna o endereço da area de dados do bloco
             jmp _exit_alloc
 
-        ; Case: there's no free block
+        ; Caso 2: não há bloco livre ou com tamanho suficiente
         _alloc_new_block:
             mov rax, 12                     ; sys_brk
-            xor rdi, rdi                    ; reset rdi
+            xor rdi, rdi                    ; zera rdi
             syscall                         ; call brk(0)
 
-            mov rsi, rax                    ; beginning of new block
+            mov rsi, rax                    ; início do novo bloco
             mov rbx, [rbp-8]                ; rbx = size_block
-            add rax, 9                      ; add the size of the header
-            add rax, 8                      ; add the size of the footer
-            add rax, rbx                    ; add the size of the block
-            mov rdi, rax                    ; new top of heap
+
+            ; Calculo do novo limite da heap
+            add rax, 9                      ; rax += 9 (header)
+            add rax, 8                      ; rax += 8 (footer)
+            add rax, rbx                    ; rax += size_block
+            mov rdi, rax                    ; rdi = new_top_of_heap
             mov rax, 12                     ; sys_brk
-            syscall                         ; call brk(new top of heap)
+            syscall                         ; call brk(new_top_of_heap)
             
-            mov BYTE [rsi], 1               ; set the block as allocate
-            mov QWORD [rsi + 1], rbx        ; set the size of the block (header)
-            mov QWORD [rsi + 9 + rbx], rbx  ; set the size of the block (footer)
-            lea rax, [rsi+9]                ; return the address of the data's block
+            mov BYTE [rsi], 1               ; coloca bloco como ocupado
+            mov QWORD [rsi + 1], rbx        ; coloca o tamanho do bloco (header)
+            mov QWORD [rsi + 9 + rbx], rbx  ; coloca o tamanho do bloco (footer)
+            lea rax, [rsi+9]                ; retorna o endereço da area de dados do bloco
 
         _exit_alloc:
             add rsp, 32
             pop rbp
             ret
 
+; Libera um bloco alocado
+; Retorna 0 em caso de sucesso e 1 em caso de erro
 memory_free:
     push rbp
     mov rbp, rsp
 
-    cmp rdi, 0                              ; if ptr != 0(NULL) then jump
+    cmp rdi, 0                              ; Se ptr != 0(NULL) então pula (ponteiro nulo)
     je _exit_error
-    cmp BYTE [rdi-9], 0                     ; if ptr was free then jump
+    cmp BYTE [rdi-9], 0                     ; Se ptr->valid == 0 então pula (ponteiro liberado)
     je _exit_error
 
-    sub rdi, 9                              ; get the beginning of the register
+    ; Inicío da liberação do bloco
+    sub rdi, 9                              ; pega o inicio do bloco
     mov BYTE [rdi], 0                       ; register->valid = 0 (free)
-    ; Starting of the merge registers
-    ; Check behind
+
+    ; Começo do merge de blocos livres adjacentes
+    ; Variaveis locais: ptr_base, size_block_base, heap_start, heap_top
     sub rsp, 32
-    mov [rbp - 8], rdi                      ; ponteiro base 
+    mov [rbp - 8], rdi                      ; ptr_base
     mov rax, [rdi + 1]
-    mov [rbp - 16], rax                     ; tamanho do bloco inicial
+    mov [rbp - 16], rax                     ; size_block_base
     mov rax, [heap_start]
-    mov [rbp - 24], rax                     ; inicio da heap
+    mov [rbp - 24], rax                     ; heap_start
+
     mov rax, 12
     xor rdi, rdi
     syscall
-    mov [rbp - 32], rax                     ; topo da heap
+    mov [rbp - 32], rax                     ; heap_top
     xor rax, rax
 
+    ; Caso 1.a: merge de blocos adjacentes para trás
     _loop_merge_behind:
-        mov rdi, [rbp - 8]                  ; ponteiro do bloco atual
-        sub rdi, 8                          ; endereco do tamanho do bloco anterior (footer)
-        cmp rdi, [rbp - 24]                 ; Se o addr do footer for menor que o inicio da heap pula
+        mov rdi, [rbp - 8]                  ; ptr_base
+        sub rdi, 8                          ; footer de i-1
+        cmp rdi, [rbp - 24]                 ; Se footer <= heap_start então pula (register[i] é o primeiro bloco)
         jle _loop_merge_ahead
 
-        mov QWORD rdi, [rdi]                ; tamamnho do bloco anterior
-        mov rdx, [rbp - 8]                  ; ponteiro base atual 
-        sub rdx, 8                          ; ponteiro esta no inicio do footer
-        sub rdx, rdi                        ; ponteiro esta no inicio da area de dados
-        sub rdx, 9                          ; ponteiro esta no inicio do header (consequentemente comeco do bloco anterior)
-        cmp BYTE [rdx], 1                   ; if bloco anterior ocupado pula
+        mov QWORD rdi, [rdi]                ; rdi = footer de i-1 (size_block)
+        mov rdx, [rbp - 8]                  ; rdx = ptr_base
+        sub rdx, 8                          ; rdx está no inicio do footer de i-1
+        sub rdx, rdi                        ; rdx está no inicio da area de dados de i-1
+        sub rdx, 9                          ; rdx = register[i-1]
+        cmp BYTE [rdx], 1                   ; Se register[i-1]->valid == 1 então pula (bloco ocupado)
         je _loop_merge_ahead
 
-        add rdi, [rbp - 16]                 ; rdi = size bloco anterior + size bloco atual
-        add rdi, 17                         ; rdi = novo tamanho + metadados engolidos
-        mov [rdx + 1], rdi                  ; tamanho novo = rdi
-        mov [rdx + 9 + rdi], rdi            ; footer
-        mov [rbp - 8], rdx                  ; novo ponteiro atual
-        mov [rbp - 16], rdi                 ; novo tamanho atual
+        ; Merge de i-1 com i
+        add rdi, [rbp - 16]                 ; rdi = register[i-1]->size_block + size_block_base
+        add rdi, 17                         ; size_block_merged = rdi + 17 (footer(i-1) e header(i))
+        mov [rdx + 1], rdi                  ; register[i-1]->size_block = rdi (header)
+        mov [rdx + 9 + rdi], rdi            ; register[i-1]->size_block = rdi (footer)
+        mov [rbp - 8], rdx                  ; prt_base = i-1
+        mov [rbp - 16], rdi                 ; size_block_base = size_block_merged
         jmp _loop_merge_behind
     
+    ; Caso 1.b: merge de blocos adjacentes para frente
     _loop_merge_ahead:
-        mov rdi, [rbp - 8]                  ; ponteiro do bloco atual
-        mov rdx, [rdi + 1]                  ; tamanho do bloco atual
-        lea rdx, [rdi + 9 + rdx + 8]        ; ponteiro do proximo bloco
-        cmp rdx, [rbp - 32]                 ; Se o addr do header for maior ou igual ao topo da heap pula
+        mov rdi, [rbp - 8]                  ; ptr_base
+        mov rdx, [rdi + 1]                  ; rdx = register[i]->size_block
+        lea rdx, [rdi + 9 + rdx + 8]        ; rdx = i + 1
+        cmp rdx, [rbp - 32]                 ; Se i + 1 >= heap_top entao pula (register[i] é o ultimo bloco)
         jge _shrink_heap
 
-        cmp BYTE [rdx], 1                   ; Se proximo bloco estiver ocupado pula
+        cmp BYTE [rdx], 1                   ; Se register[i+1]->valid == 1 então pula (bloco ocupado)
         je _shrink_heap
 
-        mov rdx, [rdx + 1]                  ; tamanho do proximo bloco
-        add rdx, [rbp - 16]                 ; rdx = tamanho atual + tamanho proximo
-        add rdx, 17                         ; rdx = novo tamanho + metadados engolidos
-        mov [rdi + 1], rdx                  ; tamanho novo = rdx
-        mov [rdi + 9 + rdx], rdx            ; footer
-        mov [rbp - 16], rdx                 ; novo tamanho atual
+        mov rdx, [rdx + 1]                  ; rdx = register[i+1]->size_block
+        add rdx, [rbp - 16]                 ; rdx = register[i+1]->size_block + size_block_base
+        add rdx, 17                         ; size_block_merged = rdx + 17 (footer(i) e header(i+1))
+        mov [rdi + 1], rdx                  ; register[i]->size_block = size_block_merged (header)
+        mov [rdi + 9 + rdx], rdx            ; register[i]->size_block = size_block_merged (footer)
+        mov [rbp - 16], rdx                 ; size_block_base = size_block_merged
         jmp _loop_merge_ahead
     
+    ; Caso 1.c: encolhimento da heap
     _shrink_heap:
-        mov rdx, [rbp - 8]
-        add rdx, 9
-        add rdx, [rbp - 16]
-        add rdx, 8
-        mov rax, 12
-        xor rdi, rdi
-        syscall
-        cmp rdx, rax                        ; Se rdx == rax entao estamos no fim da heap
+        mov rdx, [rbp - 8]                  ; rdx = ptr_base
+        add rdx, 9                          ; rdx está no inicio da area de dados de i
+        add rdx, [rbp - 16]                 ; rdx está no começo do footer de i
+        add rdx, 8                          ; rdx está no fim do bloco i
+        mov rax, 12                         ; sys_brk
+        xor rdi, rdi                        ; rdi = 0
+        syscall                             ; call brk(0)
+        cmp rdx, rax                        ; Se rdx != rax então pula (register[i] não é o ultimo bloco)
         jne _end_merge
-        mov rax, 12
-        mov rdi, [rbp - 8]
-        syscall  
 
+        ; Novo topo da heap
+        mov rax, 12                         ; sys_brk
+        mov rdi, [rbp - 8]                  ; rdi = ptr_base
+        syscall                             ; call brk(ptr_base)
+
+        ; Liberação das variáveis locais e código de retorno de sucesso
         _end_merge:
             add rsp, 32
             mov rax, 0
-            jmp _exit_sucess
+            jmp _exit_free
 
+    ; Caso 2: ponteiro nulo ou double free
     _exit_error:
         mov rax, 1
         jmp _exit_free
 
-    _exit_sucess:
-        mov rax, 0
-
+    ; Continuação dos casos 1.* e 2
     _exit_free:
         pop rbp
         ret
