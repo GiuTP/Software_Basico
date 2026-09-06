@@ -12,9 +12,9 @@
   <p align="center">
     Implementação de um gerenciador de memória heap em Assembly AMD64 — trabalho da disciplina Software Básico (CI1064) na UFPR.
     <br />
-    <a href="https://github.com/GiuTP/Software-Basico/issues/new?labels=bug">Reportar Bug</a>
+    <a href="https://github.com/giutp/software-basico/issues/new?labels=bug">Reportar Bug</a>
     &middot;
-    <a href="https://github.com/GiuTP/Software-Basico/issues/new?labels=enhancement">Sugerir Melhoria</a>
+    <a href="https://github.com/giutp/software-basico/issues/new?labels=enhancement">Sugerir Melhoria</a>
   </p>
 </div>
 
@@ -150,7 +150,7 @@ Endereço base do bloco:
 ## 📁 Estrutura do Projeto
 
 ```
-Software-Basico/
+software-basico/
 ├── heap.s              implementação da API de gerenciamento de heap (Assembly AMD64 / NASM)
 ├── main.c              programa de testes em C (10 cenários, validado via GDB)
 ├── makefile            automação de compilação e limpeza
@@ -176,8 +176,8 @@ sudo apt install nasm gcc make gdb -y
 
 1. Clone o repositório:
    ```sh
-   git clone https://github.com/GiuTP/Software-Basico.git
-   cd Software-Basico
+   git clone https://github.com/giutp/software-basico.git
+   cd software-basico
    ```
 
 2. Compile o projeto:
@@ -224,11 +224,11 @@ O código-fonte deste projeto está distribuído sob a licença **MIT**. Consult
 
 ## 📬 Contato
 
-GiuTP: [github.com/GiuTP](https://github.com/GiuTP)
+giutp: [github.com/giutp](https://github.com/giutp)
 
 E-mail — giulianotpt@gmail.com
 
-Link do projeto: [https://github.com/GiuTP/Software-Basico](https://github.com/GiuTP/Software-Basico)
+Link do projeto: [https://github.com/giutp/software-basico](https://github.com/giutp/software-basico)
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
@@ -244,12 +244,12 @@ Link do projeto: [https://github.com/GiuTP/Software-Basico](https://github.com/G
 ---
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[stars-shield]: https://img.shields.io/github/stars/GiuTP/Software-Basico.svg?style=for-the-badge
-[stars-url]: https://github.com/GiuTP/Software-Basico/stargazers
-[issues-shield]: https://img.shields.io/github/issues/GiuTP/Software-Basico.svg?style=for-the-badge
-[issues-url]: https://github.com/GiuTP/Software-Basico/issues
-[license-shield]: https://img.shields.io/github/license/GiuTP/Software-Basico.svg?style=for-the-badge
-[license-url]: https://github.com/GiuTP/Software-Basico/blob/main/LICENSE
+[stars-shield]: https://img.shields.io/github/stars/giutp/software-basico.svg?style=for-the-badge
+[stars-url]: https://github.com/giutp/software-basico/stargazers
+[issues-shield]: https://img.shields.io/github/issues/giutp/software-basico.svg?style=for-the-badge
+[issues-url]: https://github.com/giutp/software-basico/issues
+[license-shield]: https://img.shields.io/github/license/giutp/software-basico.svg?style=for-the-badge
+[license-url]: https://github.com/giutp/software-basico/blob/main/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/<SEU_LINKEDIN>/
 [ASM-badge]: https://img.shields.io/badge/Assembly-AMD64-6E4C13?style=for-the-badge&logo=assemblyscript&logoColor=white
